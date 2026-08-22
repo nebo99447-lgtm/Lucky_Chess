@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Lucky_Chess - Шахматы с кубиком</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Главное меню -->
+    <div id="mainMenu" class="menu-container">
+        <div class="menu-content">
+            <h1 class="menu-title">🎲 Lucky_Chess 🎲</h1>
+            <div class="creator-badge">
+                <span class="creator-label">Создатель:</span>
+                <span class="creator-name">Nebo</span>
+                <span class="creator-copyright">© 2024 Все права защищены</span>
+            </div>
+            
+            <div class="menu-buttons">
+                <button onclick="startGame('local')" class="menu-button">
+                    <span class="button-icon">👥</span>
+                    <span class="button-text">Играть с другом</span>
+                    <span class="button-description">На одном экране</span>
+                </button>
+                
+                <button onclick="startGame('bot')" class="menu-button">
+                    <span class="button-icon">🤖</span>
+                    <span class="button-text">Играть с ботом</span>
+                    <span class="button-description">Против компьютера</span>
+                </button>
+                
+                <button onclick="startGame('online')" class="menu-button">
+                    <span class="button-icon">🌐</span>
+                    <span class="button-text">Играть онлайн</span>
+                    <span class="button-description">По сети</span>
+                </button>
+            </div>
+            
+            <div class="menu-footer">
+                <p>Создано с ❤️ by <strong>Nebo</strong></p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Игровой экран -->
+    <div id="gameScreen" class="game-container" style="display: none;">
+        <h1>🎲 Lucky_Chess 🎲</h1>
+        <div class="creator-badge-mini">
+            <span>Создатель: <strong>Nebo</strong> © 2024</span>
+        </div>
+        
+        <!-- Индикатор текущего игрока -->
+        <div class="turn-indicator">
+            <div id="whitePlayer" class="player-turn active">
+                <div class="player-avatar">♔</div>
+                <div class="player-info-text">
+                    <span class="player-title">Белые</span>
+                    <span class="turn-status">Ваш ход!</span>
+                </div>
+            </div>
+            
+            <div class="vs-text">VS</div>
+            
+            <div id="blackPlayer" class="player-turn">
+                <div class="player-avatar">♚</div>
+                <div class="player-info-text">
+                    <span class="player-title">Чёрные</span>
+                    <span class="turn-status">Ожидание</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Информация о фигурах -->
+        <div class="pieces-info">
+            <div class="pieces-count">
+                <span class="pieces-label">Белые фигуры:</span>
+                <span id="whitePieces" class="pieces-number">16</span>
+            </div>
+            <div class="pieces-count">
+                <span class="pieces-label">Чёрные фигуры:</span>
+                <span id="blackPieces" class="pieces-number">16</span>
+            </div>
+        </div>
+        
+        <!-- Съеденные фигуры -->
+        <div class="captured-info">
+            <div class="captured-pieces">
+                <span class="captured-label">Съеденные белые:</span>
+                <span id="whiteCaptured" class="captured-list"></span>
+            </div>
+            <div class="captured-pieces">
+                <span class="captured-label">Съеденные чёрные:</span>
+                <span id="blackCaptured" class="captured-list"></span>
+            </div>
+        </div>
+        
+        <!-- Кубик -->
+        <div class="dice-container">
+            <button id="rollDice" class="dice-button">🎲 Бросить кубик (1-99)</button>
+            <div id="diceResult" class="dice-result">-</div>
+            <div id="diceEffect" class="dice-effect"></div>
+        </div>
+        
+        <!-- Игровое поле -->
+        <div class="board-wrapper">
+            <div id="board" class="board"></div>
+        </div>
+        
+        <!-- Сообщения -->
+        <div id="message" class="message">Ход белых. Бросьте кубик!</div>
+        
+        <!-- Кнопка возврата в меню -->
+        <button onclick="returnToMenu()" class="back-button">← Вернуться в меню</button>
+    </div>
+    
+    <script src="script.js"></script>
+</body>
+</html>
