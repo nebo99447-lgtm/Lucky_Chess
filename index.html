@@ -2,6 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Lucky_Chess - Шахматы с кубиком</title>
     <link rel="stylesheet" href="style.css">
 </head>
@@ -23,10 +24,10 @@
                     <span class="button-description">На одном экране</span>
                 </button>
                 
-                <button onclick="startGame('bot')" class="menu-button">
+                <button onclick="showBotMenu()" class="menu-button">
                     <span class="button-icon">🤖</span>
                     <span class="button-text">Играть с ботом</span>
-                    <span class="button-description">Против компьютера</span>
+                    <span class="button-description">Выберите сложность</span>
                 </button>
                 
                 <button onclick="startGame('online')" class="menu-button">
@@ -42,11 +43,58 @@
         </div>
     </div>
     
+    <!-- Меню выбора сложности бота -->
+    <div id="botMenu" class="menu-container" style="display: none;">
+        <div class="menu-content">
+            <h1 class="menu-title">🤖 Выбор сложности</h1>
+            
+            <div class="menu-buttons">
+                <button onclick="startGame('bot', 'Жыргей')" class="menu-button bot-difficulty">
+                    <span class="button-icon">🦆</span>
+                    <span class="button-text">Жыргей</span>
+                    <span class="button-description">Средние шахматы, кубик всегда меньше 50</span>
+                </button>
+                
+                <button onclick="startGame('bot', 'Легкий')" class="menu-button bot-difficulty">
+                    <span class="button-icon">🐣</span>
+                    <span class="button-text">Легкий</span>
+                    <span class="button-description">Случайные ходы, обычный кубик</span>
+                </button>
+                
+                <button onclick="startGame('bot', 'Средний')" class="menu-button bot-difficulty">
+                    <span class="button-icon">🐥</span>
+                    <span class="button-text">Средний</span>
+                    <span class="button-description">Немного думает, обычный кубик</span>
+                </button>
+                
+                <button onclick="startGame('bot', 'Сложный')" class="menu-button bot-difficulty">
+                    <span class="button-icon">🦅</span>
+                    <span class="button-text">Сложный</span>
+                    <span class="button-description">Хорошие ходы, обычный кубик</span>
+                </button>
+                
+                <button onclick="startGame('bot', 'Extreme')" class="menu-button bot-difficulty">
+                    <span class="button-icon">🔥</span>
+                    <span class="button-text">Extreme</span>
+                    <span class="button-description">Отличные ходы, кубик чаще хороший</span>
+                </button>
+                
+                <button onclick="startGame('bot', 'Reinhard')" class="menu-button bot-difficulty">
+                    <span class="button-icon">👑</span>
+                    <span class="button-text">Reinhard</span>
+                    <span class="button-description">Легендарный, кубик всегда больше 80</span>
+                </button>
+            </div>
+            
+            <button onclick="returnToMainMenu()" class="back-button">← Назад</button>
+        </div>
+    </div>
+    
     <!-- Игровой экран -->
     <div id="gameScreen" class="game-container" style="display: none;">
         <h1>🎲 Lucky_Chess 🎲</h1>
         <div class="creator-badge-mini">
-            <span>Создатель: <strong>Nebo</strong> © 2024</span>
+            <span>Создатель: <strong>Nebo</strong> © 2024 | Бот: <span id="botDifficulty">-</span></span>
         </div>
         
         <!-- Индикатор текущего игрока -->
@@ -110,7 +158,7 @@
         <div id="message" class="message">Ход белых. Бросьте кубик!</div>
         
         <!-- Кнопка возврата в меню -->
-        <button onclick="returnToMenu()" class="back-button">← Вернуться в меню</button>
+        <button onclick="returnToMainMenu()" class="back-button">← Вернуться в меню</button>
     </div>
     
     <script src="script.js"></script>
