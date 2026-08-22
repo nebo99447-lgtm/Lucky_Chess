@@ -11,11 +11,6 @@
     <div id="mainMenu" class="menu-container">
         <div class="menu-content">
             <h1 class="menu-title">🎲 Lucky_Chess 🎲</h1>
-            <div class="creator-badge">
-                <span class="creator-label">Создатель:</span>
-                <span class="creator-name">Nebo</span>
-                <span class="creator-copyright">© 2024 Все права защищены</span>
-            </div>
             
             <div class="menu-buttons">
                 <button onclick="startGame('local')" class="menu-button">
@@ -30,16 +25,33 @@
                     <span class="button-description">Выберите сложность</span>
                 </button>
                 
-                <button onclick="startGame('online')" class="menu-button">
+                <button onclick="showOnlineComingSoon()" class="menu-button">
                     <span class="button-icon">🌐</span>
                     <span class="button-text">Играть онлайн</span>
                     <span class="button-description">По сети</span>
                 </button>
             </div>
             
+            <!-- Цветная шапка создателя внизу -->
+            <div class="creator-badge creator-badge-bottom">
+                <span class="creator-label">Создатель:</span>
+                <span class="creator-name">Nebo</span>
+                <span class="creator-copyright">© 2024 Все права защищены</span>
+            </div>
+            
             <div class="menu-footer">
                 <p>Создано с ❤️ by <strong>Nebo</strong></p>
             </div>
+        </div>
+    </div>
+    
+    <!-- Модальное окно для уведомлений -->
+    <div id="notificationModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-icon" id="modalIcon">🌐</div>
+            <h2 class="modal-title" id="modalTitle">Онлайн режим</h2>
+            <p class="modal-message" id="modalMessage">Еще не добавлена 😓</p>
+            <button onclick="closeModal()" class="modal-button">Понятно</button>
         </div>
     </div>
     
@@ -93,9 +105,6 @@
     <!-- Игровой экран -->
     <div id="gameScreen" class="game-container" style="display: none;">
         <h1>🎲 Lucky_Chess 🎲</h1>
-        <div class="creator-badge-mini">
-            <span>Создатель: <strong>Nebo</strong> © 2024 | Бот: <span id="botDifficulty">-</span></span>
-        </div>
         
         <!-- Индикатор текущего игрока -->
         <div class="turn-indicator">
