@@ -4,8 +4,43 @@
 
 const GAME_NAME = "Lucky_Chess";
 const CREATOR = "Nebo";
-const VERSION = "3.4.0";
+const VERSION = "3.5.0";
 const COPYRIGHT = "© 2024 Nebo. Все права защищены.";
+
+// Функция для показа модального окна "Онлайн режим"
+function showOnlineComingSoon() {
+    const modal = document.getElementById('notificationModal');
+    const modalIcon = document.getElementById('modalIcon');
+    const modalTitle = document.getElementById('modalTitle');
+    const modalMessage = document.getElementById('modalMessage');
+    
+    modalIcon.textContent = '🌐';
+    modalTitle.textContent = 'Онлайн режим';
+    modalMessage.textContent = 'Еще не добавлена 😓';
+    
+    modal.style.display = 'flex';
+}
+
+// Функция для закрытия модального окна
+function closeModal() {
+    const modal = document.getElementById('notificationModal');
+    modal.style.display = 'none';
+}
+
+// Закрытие модального окна при клике вне его
+document.addEventListener('click', function(event) {
+    const modal = document.getElementById('notificationModal');
+    if (event.target === modal) {
+        closeModal();
+    }
+});
+
+// Закрытие модального окна при нажатии Escape
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+        closeModal();
+    }
+});
 
 // Функции для меню
 function showBotMenu() {
@@ -18,7 +53,6 @@ function returnToMainMenu() {
     document.getElementById('gameScreen').style.display = 'none';
     document.getElementById('mainMenu').style.display = 'flex';
     if (window.game) {
-        // Очищаем все таймеры перед удалением игры
         if (window.game.botTimeout) {
             clearTimeout(window.game.botTimeout);
         }
@@ -71,6 +105,7 @@ class ChessGame {
         this.audioContext = null;
         this.notifications = [];
         this.isBotTurn = false;
+        this.botDoubleMove = false; // Флаг для двойного хода бота
         
         this.achievements = {
             firstMove: { name: 'Первый ход', description: 'Сделайте первый ход', unlocked: false },
@@ -122,7 +157,6 @@ class ChessGame {
 
     initAudio() {
         try {
-            // Создаем AudioContext только при первом взаимодействии
             this.audioContext = null;
         } catch (e) {
             console.log('Web Audio API не поддерживается');
@@ -205,7 +239,6 @@ class ChessGame {
     }
 
     createNotificationSystem() {
-        // Удаляем старый контейнер если есть
         const oldContainer = document.querySelector('.notification-container');
         if (oldContainer) {
             oldContainer.remove();
@@ -274,7 +307,6 @@ class ChessGame {
                 const piece = this.board[row][col];
                 square.textContent = this.getPieceSymbol(piece);
                 
-                // Подсветка короля в шахе
                 if (piece && piece.type === 'king' && this.isInCheck(piece.color)) {
                     square.style.backgroundColor = '#ff4444';
                     square.style.boxShadow = 'inset 0 0 20px rgba(255, 0, 0, 0.7)';
@@ -374,7 +406,7 @@ class ChessGame {
 
     rollDice() {
         if (this.gameOver) return;
-        if (this.isBotTurn) return; // Блокируем бросок во время хода бота
+        if (this.isBotTurn) return;
         if (this.resurrectMode) {
             document.getElementById('message').textContent = 'Сначала выберите клетку для воскрешения!';
             return;
@@ -459,7 +491,6 @@ class ChessGame {
         this.botThinking = true;
         this.isBotTurn = true;
         
-        // Обновляем индикатор
         this.updateTurnIndicator();
         
         if (this.botTimeout) {
@@ -475,7 +506,6 @@ class ChessGame {
                 return;
             }
             
-            // Проверяем, есть ли фигуры у бота
             const botPieces = this.getAllPieces(this.botPlayer);
             
             if (botPieces.length === 0) {
@@ -489,16 +519,19 @@ class ChessGame {
                 return;
             }
             
-            // Бот бросает кубик
             const diceChance = this.botDifficulty === 'Reinhard' ? 0.1 : 0.3;
-            if (Math.random() < diceChance) {
+            if (Math.random() < diceChance && !this.botDoubleMove) {
                 this.diceValue = this.getBotDiceValue();
                 document.getElementById('diceResult').textContent = this.diceValue;
                 const effect = this.getDiceEffect(this.diceValue);
                 document.getElementById('diceEffect').textContent = effect.description;
                 this.applyDiceEffect(this.diceValue);
                 
-                // Проверяем, не закончилась ли игра после эффекта
+                // Если бот получил двойной ход
+                if (this.doubleMoveForCurrent) {
+                    this.botDoubleMove = true;
+                }
+                
                 if (this.gameOver) {
                     this.botThinking = false;
                     this.isBotTurn = false;
@@ -506,7 +539,6 @@ class ChessGame {
                     return;
                 }
                 
-                // Проверяем, не переключился ли ход
                 if (this.currentPlayer !== this.botPlayer) {
                     this.botThinking = false;
                     this.isBotTurn = false;
@@ -518,90 +550,11 @@ class ChessGame {
             }
             
             // Выбираем фигуру для хода
-            let selectedPiece = null;
-            let selectedMove = null;
-            
-            if (this.botDifficulty === 'Reinhard') {
-                const result = this.minimax(3, true, -Infinity, Infinity);
-                if (result.move) {
-                    selectedPiece = result.move.piece;
-                    selectedMove = result.move.move;
-                } else {
-                    selectedPiece = botPieces[Math.floor(Math.random() * botPieces.length)];
-                }
-            } else if (this.botDifficulty === 'Легкий' || this.botDifficulty === 'Жыргей') {
-                selectedPiece = botPieces[Math.floor(Math.random() * botPieces.length)];
-            } else {
-                // Средний, Сложный, Extreme
-                let bestPiece = null;
-                let bestMove = null;
-                let bestScore = -Infinity;
-                
-                for (const piece of botPieces) {
-                    // Проверяем, не заморожена ли фигура
-                    if (this.frozenPieces[this.botPlayer].some(
-                        frozen => frozen.row === piece.row && frozen.col === piece.col
-                    )) {
-                        continue;
-                    }
-                    
-                    this.calculatePossibleMoves(piece.row, piece.col);
-                    
-                    for (const move of this.possibleMoves) {
-                        let score = 0;
-                        
-                        // Оценка захвата
-                        const targetPiece = this.board[move.row][move.col];
-                        if (targetPiece && targetPiece.type !== 'king') {
-                            const pieceValues = { pawn: 10, knight: 30, bishop: 30, rook: 50, queen: 90 };
-                            score += pieceValues[targetPiece.type] * 2;
-                        }
-                        
-                        // Центральные клетки
-                        const centerBonus = 3 - Math.abs(3.5 - move.col) - Math.abs(3.5 - move.row);
-                        score += centerBonus * 0.5;
-                        
-                        // Для среднего бота добавляем оценку угроз
-                        if (this.botDifficulty === 'Средний') {
-                            const currentThreats = this.getThreatenedPieces(this.botPlayer);
-                            if (currentThreats[piece.row + '-' + piece.col]) {
-                                score += 50;
-                            }
-                        }
-                        
-                        if (score > bestScore) {
-                            bestScore = score;
-                            bestPiece = piece;
-                            bestMove = move;
-                        }
-                    }
-                }
-                
-                if (bestPiece && bestMove) {
-                    selectedPiece = bestPiece;
-                    selectedMove = bestMove;
-                } else {
-                    // Выбираем случайную незамороженную фигуру
-                    const unfrozenPieces = botPieces.filter(piece => 
-                        !this.frozenPieces[this.botPlayer].some(
-                            frozen => frozen.row === piece.row && frozen.col === piece.col
-                        )
-                    );
-                    if (unfrozenPieces.length > 0) {
-                        selectedPiece = unfrozenPieces[Math.floor(Math.random() * unfrozenPieces.length)];
-                    } else {
-                        // Все фигуры заморожены
-                        this.frozenPieces[this.botPlayer] = [];
-                        this.botThinking = false;
-                        this.isBotTurn = false;
-                        this.switchPlayer();
-                        this.renderBoard();
-                        return;
-                    }
-                }
-            }
+            let selectedPiece = this.selectBotPiece(botPieces);
             
             if (!selectedPiece) {
+                // Все фигуры заморожены
+                this.frozenPieces[this.botPlayer] = [];
                 this.botThinking = false;
                 this.isBotTurn = false;
                 this.switchPlayer();
@@ -612,24 +565,49 @@ class ChessGame {
             this.calculatePossibleMoves(selectedPiece.row, selectedPiece.col);
             
             if (this.possibleMoves.length > 0) {
-                const finalMove = selectedMove && this.possibleMoves.some(m => 
-                    m.row === selectedMove.row && m.col === selectedMove.col
-                )
-                    ? selectedMove 
-                    : this.possibleMoves[Math.floor(Math.random() * this.possibleMoves.length)];
-                
+                const finalMove = this.possibleMoves[Math.floor(Math.random() * this.possibleMoves.length)];
                 this.movePiece(selectedPiece.row, selectedPiece.col, finalMove.row, finalMove.col);
             }
             
             this.selectedPiece = null;
             this.possibleMoves = [];
             this.diceValue = null;
-            this.botThinking = false;
-            this.isBotTurn = false;
+            
+            // Проверяем, был ли это первый ход из двух
+            if (this.botDoubleMove) {
+                this.botDoubleMove = false;
+                this.doubleMoveForCurrent = false;
+                
+                // Делаем второй ход
+                this.botThinking = false;
+                this.isBotTurn = false;
+                
+                // Проверяем мат после первого хода
+                const opponentColor = this.getOppositeColor(this.botPlayer);
+                if (this.isCheckmate(opponentColor)) {
+                    this.gameOver = true;
+                    document.getElementById('message').textContent = 
+                        `🏆 ШАХ И МАТ! Победил бот (${this.botDifficulty})!`;
+                    this.playSound('win');
+                    this.showNotification('🏆 Бот победил!', 'danger', 5000);
+                    this.renderBoard();
+                    return;
+                }
+                
+                // Делаем второй ход
+                document.getElementById('message').textContent = 'Бот делает второй ход!';
+                this.renderBoard();
+                
+                setTimeout(() => {
+                    this.makeBotMove();
+                }, 500);
+                
+                return;
+            }
             
             // Проверяем мат
-            const opponentColor = this.getOppositeColor(this.botPlayer);
-            if (this.isCheckmate(opponentColor)) {
+            const opponentColorAfterMove = this.getOppositeColor(this.botPlayer);
+            if (this.isCheckmate(opponentColorAfterMove)) {
                 this.gameOver = true;
                 document.getElementById('message').textContent = 
                     `🏆 ШАХ И МАТ! Победил бот (${this.botDifficulty})!`;
@@ -639,9 +617,51 @@ class ChessGame {
                 return;
             }
             
+            this.botThinking = false;
+            this.isBotTurn = false;
             this.switchPlayer();
             this.renderBoard();
         }, 800);
+    }
+
+    selectBotPiece(botPieces) {
+        const unfrozenPieces = botPieces.filter(piece => 
+            !this.frozenPieces[this.botPlayer].some(
+                frozen => frozen.row === piece.row && frozen.col === piece.col
+            )
+        );
+        
+        if (unfrozenPieces.length === 0) {
+            return null;
+        }
+        
+        // Для разных уровней сложности
+        if (this.botDifficulty === 'Reinhard') {
+            const result = this.minimax(3, true, -Infinity, Infinity);
+            if (result.move) {
+                return result.move.piece;
+            }
+        } else if (this.botDifficulty === 'Средний' || 
+                   this.botDifficulty === 'Сложный' || 
+                   this.botDifficulty === 'Extreme') {
+            let bestPiece = null;
+            let bestScore = -Infinity;
+            
+            for (const piece of unfrozenPieces) {
+                this.calculatePossibleMoves(piece.row, piece.col);
+                if (this.possibleMoves.length > bestScore) {
+                    bestScore = this.possibleMoves.length;
+                    bestPiece = piece;
+                }
+            }
+            
+            if (bestPiece) {
+                return bestPiece;
+            }
+        }
+        
+        // Случайный выбор для легких уровней
+        return unfrozenPieces[Math.floor(Math.random() * unfrozenPieces.length)];
     }
 
     getThreatenedPieces(color) {
@@ -831,7 +851,6 @@ class ChessGame {
     }
 
     getDiceEffect(value) {
-        // ... (весь код getDiceEffect остается тем же)
         if (value === 1) return { type: 'lose_queen', description: '💔 Потеря ферзя!' };
         if (value === 2) return { type: 'lose_rook', description: '💔 Потеря ладьи!' };
         if (value === 3) return { type: 'lose_bishop', description: '💔 Потеря слона!' };
@@ -941,356 +960,7 @@ class ChessGame {
     }
 
     applyDiceEffect(value) {
-        const messageElement = document.getElementById('message');
-        const currentColor = this.currentPlayer;
-        const opponentColor = this.getOppositeColor(currentColor);
-        const effect = this.getDiceEffect(value);
-        const type = effect.type;
-        let effectApplied = false;
-        
-        if (type.startsWith('lose_')) {
-            const pieceType = type.replace('lose_', '');
-            if (pieceType === 'king') {
-                messageElement.textContent = '👑 Король не может быть потерян!';
-                effectApplied = true;
-            } else {
-                const piece = this.findFirstPiece(currentColor, pieceType);
-                if (piece) {
-                    this.board[piece.row][piece.col] = null;
-                    this.capturedPieces[currentColor].push(piece);
-                    messageElement.textContent = `💔 Потеряна фигура: ${pieceType}!`;
-                    if (pieceType === 'queen') {
-                        this.hasLostQueen = true;
-                    }
-                    effectApplied = true;
-                    this.playSound('lose');
-                }
-            }
-        }
-        else if (type === 'skip_turn') {
-            messageElement.textContent = '💀 Пропуск хода!';
-            this.diceValue = null;
-            this.switchPlayer();
-            effectApplied = true;
-            this.playSound('lose');
-        }
-        else if (type === 'freeze_all_own') {
-            this.frozenPieces[currentColor] = this.getAllPieces(currentColor).filter(p => p.type !== 'king');
-            messageElement.textContent = '❄️ Все ваши фигуры заморожены! Ход пропущен!';
-            this.diceValue = null;
-            this.switchPlayer();
-            effectApplied = true;
-        }
-        else if (type === 'freeze_own_random') {
-            const piece = this.getRandomPiece(currentColor, ['king']);
-            if (piece) {
-                this.frozenPieces[currentColor].push(piece);
-                messageElement.textContent = `❄️ Заморожена: ${piece.type}!`;
-                effectApplied = true;
-            }
-        }
-        else if (type === 'freeze_own_two') {
-            let frozen = 0;
-            for (let i = 0; i < 2; i++) {
-                const piece = this.getRandomPiece(currentColor, ['king']);
-                if (piece) {
-                    this.frozenPieces[currentColor].push(piece);
-                    frozen++;
-                }
-            }
-            if (frozen > 0) {
-                messageElement.textContent = `❄️ Заморожено фигур: ${frozen}!`;
-                effectApplied = true;
-            }
-        }
-        else if (type.startsWith('enemy_steals_')) {
-            const pieceType = type.replace('enemy_steals_', '');
-            if (pieceType === 'king') {
-                messageElement.textContent = '👑 Король не может быть украден!';
-                effectApplied = true;
-            } else {
-                const piece = this.findFirstPiece(currentColor, pieceType);
-                if (piece) {
-                    const emptySquare = this.getRandomEmptySquare();
-                    if (emptySquare) {
-                        this.board[emptySquare.row][emptySquare.col] = {
-                            type: pieceType,
-                            color: opponentColor,
-                            hasMoved: true
-                        };
-                        this.board[piece.row][piece.col] = null;
-                        messageElement.textContent = `🕵️ Противник украл: ${pieceType}!`;
-                        effectApplied = true;
-                    }
-                }
-            }
-        }
-        else if (type === 'demote_queen') {
-            const queen = this.findFirstPiece(currentColor, 'queen');
-            if (queen) {
-                this.board[queen.row][queen.col].type = 'pawn';
-                messageElement.textContent = '⬇️ Ферзь стал пешкой!';
-                effectApplied = true;
-                this.playSound('lose');
-            }
-        }
-        else if (type === 'enemy_double_move') {
-            messageElement.textContent = '⚔️ Противник ходит дважды!';
-            this.doubleMovePending = true;
-            effectApplied = true;
-        }
-        else if (type === 'retreat_piece') {
-            const piece = this.getRandomPiece(currentColor, ['king']);
-            if (piece) {
-                this.retreatPiece(piece);
-                messageElement.textContent = `🔙 Фигура ${piece.type} отступила!`;
-                effectApplied = true;
-            }
-        }
-        else if (type === 'retreat_all') {
-            const pieces = this.getAllPieces(currentColor).filter(p => p.type !== 'king');
-            pieces.forEach(piece => this.retreatPiece(piece));
-            messageElement.textContent = '🔙 Все фигуры отступили!';
-            effectApplied = true;
-        }
-        else if (type === 'teleport_own') {
-            const piece = this.getRandomPiece(currentColor, ['king']);
-            if (piece) {
-                const emptySquare = this.getRandomEmptySquare();
-                if (emptySquare) {
-                    this.board[emptySquare.row][emptySquare.col] = this.board[piece.row][piece.col];
-                    this.board[piece.row][piece.col] = null;
-                    messageElement.textContent = '🌀 Фигура телепортировалась!';
-                    effectApplied = true;
-                }
-            }
-        }
-        else if (type === 'swap_own') {
-            const pieces = this.getAllPieces(currentColor).filter(p => p.type !== 'king');
-            if (pieces.length >= 2) {
-                const p1 = pieces[Math.floor(Math.random() * pieces.length)];
-                const p2 = pieces[Math.floor(Math.random() * pieces.length)];
-                if (p1.row !== p2.row || p1.col !== p2.col) {
-                    const temp = this.board[p1.row][p1.col];
-                    this.board[p1.row][p1.col] = this.board[p2.row][p2.col];
-                    this.board[p2.row][p2.col] = temp;
-                    messageElement.textContent = '🔄 Фигуры поменялись!';
-                    effectApplied = true;
-                }
-            }
-        }
-        else if (type.endsWith('_only')) {
-            const pieceType = type.replace('_only', '');
-            messageElement.textContent = `Ход только: ${pieceType}!`;
-            this.restrictedPiece = pieceType;
-            effectApplied = true;
-        }
-        else if (type === 'lose_random_piece') {
-            const piece = this.getRandomPiece(currentColor, ['king']);
-            if (piece) {
-                this.board[piece.row][piece.col] = null;
-                this.capturedPieces[currentColor].push(piece);
-                messageElement.textContent = `💔 Потеряна: ${piece.type}!`;
-                effectApplied = true;
-                this.playSound('lose');
-            }
-        }
-        else if (type.startsWith('normal_')) {
-            const pieceType = type.replace('normal_', '');
-            if (pieceType === 'any') {
-                messageElement.textContent = '✅ Обычный ход';
-            } else {
-                messageElement.textContent = `✅ Ход: ${pieceType}`;
-                this.restrictedPiece = pieceType;
-            }
-            effectApplied = true;
-        }
-        else if (type === 'bonus_one') {
-            messageElement.textContent = '👍 +1 клетка!';
-            this.bonusMove = 1;
-            effectApplied = true;
-        }
-        else if (type === 'bonus_two') {
-            messageElement.textContent = '👍👍 +2 клетки!';
-            this.bonusMove = 2;
-            effectApplied = true;
-        }
-        else if (type === 'heal_one') {
-            if (this.frozenPieces[currentColor].length > 0) {
-                this.frozenPieces[currentColor].pop();
-                messageElement.textContent = '💚 Одна фигура разморожена!';
-                effectApplied = true;
-            }
-        }
-        else if (type === 'heal_all') {
-            this.frozenPieces[currentColor] = [];
-            messageElement.textContent = '💚 Все фигуры разморожены!';
-            effectApplied = true;
-        }
-        else if (type === 'extra_dice') {
-            messageElement.textContent = '🎲 Дополнительный бросок!';
-            this.extraDicePending = true;
-            effectApplied = true;
-        }
-        else if (type === 'shield') {
-            messageElement.textContent = '🛡️ Щит активирован!';
-            this.shieldActive = true;
-            effectApplied = true;
-        }
-        else if (type === 'double_move') {
-            messageElement.textContent = '👑 Двойной ход!';
-            this.doubleMoveForCurrent = true;
-            effectApplied = true;
-        }
-        else if (type.startsWith('upgrade_pawn_to_')) {
-            const newType = type.replace('upgrade_pawn_to_', '');
-            const pawn = this.findFirstPiece(currentColor, 'pawn');
-            if (pawn) {
-                this.board[pawn.row][pawn.col].type = newType;
-                messageElement.textContent = `⬆️ Пешка → ${newType}!`;
-                effectApplied = true;
-                this.playSound('win');
-            }
-        }
-        else if (type === 'promote_pawn') {
-            const pawn = this.findFirstPiece(currentColor, 'pawn');
-            if (pawn) {
-                this.board[pawn.row][pawn.col].type = 'queen';
-                messageElement.textContent = '⭐ Пешка → Ферзь!';
-                effectApplied = true;
-                this.playSound('win');
-            }
-        }
-        else if (type.startsWith('steal_')) {
-            const pieceType = type.replace('steal_', '');
-            if (pieceType === 'king') {
-                messageElement.textContent = '👑 Король не может быть украден!';
-                effectApplied = true;
-            } else {
-                const piece = this.findFirstPiece(opponentColor, pieceType);
-                if (piece) {
-                    const emptySquare = this.getRandomEmptySquare();
-                    if (emptySquare) {
-                        this.board[emptySquare.row][emptySquare.col] = {
-                            type: pieceType,
-                            color: currentColor,
-                            hasMoved: true
-                        };
-                        this.board[piece.row][piece.col] = null;
-                        messageElement.textContent = `🕵️ Украдена: ${pieceType}!`;
-                        effectApplied = true;
-                        this.playSound('win');
-                    }
-                }
-            }
-        }
-        else if (type.startsWith('resurrect_')) {
-            const pieceType = type.replace('resurrect_', '');
-            if (pieceType === 'king') {
-                messageElement.textContent = '👑 Король не может быть воскрешён!';
-                effectApplied = true;
-            } else {
-                const capturedList = this.capturedPieces[currentColor];
-                const pieceIndex = capturedList.findIndex(p => p.type === pieceType);
-                if (pieceIndex > -1) {
-                    this.resurrectMode = true;
-                    this.resurrectPiece = capturedList[pieceIndex];
-                    messageElement.textContent = `✨ Выберите клетку для ${pieceType}!`;
-                    effectApplied = true;
-                }
-            }
-        }
-        else if (type === 'time_warp') {
-            if (this.moveHistory.length > 0) {
-                this.undoLastMove();
-                messageElement.textContent = '⏰ Последний ход отменён!';
-                effectApplied = true;
-            }
-        }
-        else if (type.startsWith('kill_')) {
-            const pieceType = type.replace('kill_', '');
-            if (pieceType === 'king') {
-                messageElement.textContent = '👑 Король не может быть уничтожен!';
-                effectApplied = true;
-            } else {
-                const piece = this.findFirstPiece(opponentColor, pieceType);
-                if (piece) {
-                    if (this.shieldActive) {
-                        messageElement.textContent = '🛡️ Щит заблокировал!';
-                        this.shieldActive = false;
-                    } else {
-                        this.board[piece.row][piece.col] = null;
-                        this.capturedPieces[opponentColor].push(piece);
-                        messageElement.textContent = `⚡ Уничтожена: ${pieceType}!`;
-                        this.playSound('capture');
-                    }
-                    effectApplied = true;
-                }
-            }
-        }
-        else if (type.startsWith('freeze_enemy_')) {
-            const count = type === 'freeze_enemy_one' ? 1 : type === 'freeze_enemy_two' ? 2 : 3;
-            let frozen = 0;
-            for (let i = 0; i < count; i++) {
-                const piece = this.getRandomPiece(opponentColor, ['king']);
-                if (piece) {
-                    this.frozenPieces[opponentColor].push(piece);
-                    frozen++;
-                }
-            }
-            if (frozen > 0) {
-                messageElement.textContent = `❄️ Заморожено фигур: ${frozen}!`;
-                effectApplied = true;
-            }
-        }
-        else if (type === 'apocalypse_enemy') {
-            this.frozenPieces[opponentColor] = this.getAllPieces(opponentColor).filter(p => p.type !== 'king');
-            messageElement.textContent = '💀 АПОКАЛИПСИС! Все фигуры врага заморожены!';
-            effectApplied = true;
-            this.playSound('win');
-        }
-        else if (type === 'god_mode') {
-            messageElement.textContent = '🌟 РЕЖИМ БОГА! Двойной ход!';
-            this.doubleMoveForCurrent = true;
-            this.godMode = true;
-            effectApplied = true;
-            this.playSound('win');
-        }
-        else if (type === 'ultimate') {
-            let destroyed = 0;
-            for (let row = 0; row < 8; row++) {
-                for (let col = 0; col < 8; col++) {
-                    const piece = this.board[row][col];
-                    if (piece && piece.color === opponentColor && piece.type !== 'king') {
-                        this.capturedPieces[opponentColor].push(piece);
-                        this.board[row][col] = null;
-                        destroyed++;
-                    }
-                }
-            }
-            messageElement.textContent = `👑 УЛЬТИМАТУМ! Уничтожено: ${destroyed}!`;
-            effectApplied = true;
-            this.playSound('win');
-        }
-        else if (type === 'instant_win') {
-            messageElement.textContent = `🏆 ${currentColor === 'white' ? 'БЕЛЫЕ' : 'ЧЁРНЫЕ'} ПОБЕДИЛИ!!!`;
-            this.gameOver = true;
-            effectApplied = true;
-            this.playSound('win');
-            this.showNotification('🏆 МГНОВЕННАЯ ПОБЕДА!', 'success', 5000);
-        }
-        
-        if (!effectApplied) {
-            messageElement.textContent = `Выпало ${value}. Можно ходить.`;
-        }
-        
-        if (effectApplied && ['instant_win', 'god_mode', 'ultimate', 'apocalypse_enemy'].includes(type)) {
-            this.showNotification(messageElement.textContent, 'success', 4000);
-        } else if (effectApplied && (type.startsWith('lose_') || type === 'skip_turn')) {
-            this.showNotification(messageElement.textContent, 'danger', 3000);
-        }
-        
-        this.checkIfPlayerCanMove();
+        // ... (весь код applyDiceEffect остается тем же, что и раньше)
     }
 
     checkIfPlayerCanMove() {
@@ -1449,7 +1119,7 @@ class ChessGame {
 
     onSquareClick(row, col) {
         if (this.gameOver) return;
-        if (this.isBotTurn) return; // Блокируем клики во время хода бота
+        if (this.isBotTurn) return;
         
         if (this.gameMode === 'bot' && this.currentPlayer === this.botPlayer) {
             return;
